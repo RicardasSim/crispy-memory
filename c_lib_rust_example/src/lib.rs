@@ -1,12 +1,14 @@
-use libc;
 use std::ffi::CString;
 use std::os::raw::c_char;
 
-/// File: lib.rs
+// File: lib.rs
 
-/// For further reading ...
-/// #[unsafe(no_mangle)] - // https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098
+// For further reading ...
+// #[unsafe(no_mangle)] - // https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098
 
+/// # Safety
+///
+/// This function needs to be provided with a valid pointer that is initialized to NULL
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn get_some_cstr(desc: *mut *mut c_char) -> isize {
     unsafe {
@@ -24,7 +26,7 @@ pub unsafe extern "C" fn get_some_cstr(desc: *mut *mut c_char) -> isize {
         // that the memory is allocated with the same allocator as what the caller will be using to
         // "free" it.  In general having a library which allocates things on the heap and expects the
         // caller to free it is probably not the best thing to do.
-        let m = libc::malloc(libc::strlen(val.as_ptr()) + 1) as *mut c_char;
+        let m = libc::malloc(val.as_bytes().len() + 1) as *mut c_char;
         if m.is_null() {
             return libc::ENOMEM as isize;
         }
@@ -35,6 +37,9 @@ pub unsafe extern "C" fn get_some_cstr(desc: *mut *mut c_char) -> isize {
     }
 }
 
+/// # Safety
+///
+/// This function needs to be provided with a valid pointer that is initialized to NULL
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn get_some_cstr_2(desc: *mut *mut c_char) -> isize {
     unsafe {
@@ -84,6 +89,9 @@ impl Drop for Error {
     }
 }
 
+/// # Safety
+///
+/// This function needs to be provided with a valid pointer that is initialized to NULL
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn error_create_with_result(_e: *mut *mut Error) -> isize {
     unsafe {
@@ -93,6 +101,9 @@ pub unsafe extern "C" fn error_create_with_result(_e: *mut *mut Error) -> isize 
     }
 }
 
+/// # Safety
+///
+/// This function needs to be provided with a valid Error pointer
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn error_free_with_result(e: *mut *mut Error) -> i32 {
     unsafe {
@@ -107,7 +118,7 @@ pub unsafe extern "C" fn error_free_with_result(e: *mut *mut Error) -> i32 {
 
         // Reconstruct the Error into a box and then drop it so that it's freed.
         drop(Box::from_raw(*e));
-        *e = 0 as *mut Error;
+        *e = std::ptr::null_mut::<Error>();
         0
     }
 }
@@ -124,6 +135,11 @@ pub extern "C" fn error_new() -> Box<Error> {
 #[unsafe(no_mangle)]
 pub extern "C" fn error_free(_: Option<Box<Error>>) {}
 
+/// # Safety
+///
+/// This function needs to be provided with a valid error pointer, returned pointer only valid
+/// for the life of Error.
+///
 /// Our example "getter" methods which work on the Error type.  The value
 /// returned is only valid as long as the Error has not been freed.  If C
 /// caller needs a longer lifetime they need to copy the value.
