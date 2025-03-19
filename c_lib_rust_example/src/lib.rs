@@ -93,10 +93,14 @@ impl Drop for Error {
 ///
 /// This function needs to be provided with a valid pointer that is initialized to NULL
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn error_create_with_result(_e: *mut *mut Error) -> isize {
+pub unsafe extern "C" fn error_create_with_result(e: *mut *mut Error) -> isize {
     unsafe {
-        let e = Box::new(example_error());
-        *_e = Box::into_raw(e);
+        if e.is_null() || !(*e).is_null() {
+            return libc::EINVAL as isize;
+        }
+
+        let tmp = Box::new(example_error());
+        *e = Box::into_raw(tmp);
         0
     }
 }
@@ -145,10 +149,16 @@ pub extern "C" fn error_free(_: Option<Box<Error>>) {}
 /// caller needs a longer lifetime they need to copy the value.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn error_msg_get(e: &Error) -> *const c_char {
+    if e.magic != ERROR_MAGIC {
+        return std::ptr::null();
+    }
     e.msg.as_ptr()
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn error_code_get(e: &Error) -> isize {
+    if e.magic != ERROR_MAGIC {
+        return libc::EINVAL as isize;
+    }
     e.code
 }
